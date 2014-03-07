@@ -1,5 +1,6 @@
 # coding=utf-8
 import json 
+import random
 from sklearn import *
 from numpy import *
 import re
@@ -76,8 +77,7 @@ class SentimentAnalyzer:
 		else:
 			return 'neutral'
 
-	def get_featutes_string(self, string, p=True):
-#		print string
+	def get_featutes_string(self, string, p=False):
 		ans = []
 		ans += [string.count(')') - string.count('(')]
 		for sub in self.simples:
@@ -108,24 +108,45 @@ class SentimentAnalyzer:
 		self.classifier = svm.SVC(class_weight='auto')
 		arrX = array(self.get_features(training_corpus), dtype = float64)
 		arrY = array(map(self.get_polarity, training_corpus), dtype = float64)
-		self.classifier.fit(arrX, arrY)
+		self.classifier.fit(preprocessing.scale(arrX), arrY)
 		
 	#returns sentiment score of input text (mandatory)
 	def getClasses(self, texts):
 #		print u''.join(texts)
 		x = array(map(lambda x: self.get_featutes_string(x), texts), dtype = float64)
-		print map(self.reverse_map, self.classifier.predict(x))
-#		return map(self.reverse_map, self.classifier.predict(x))
+#		print map(self.reverse_map, self.classifier.predict(x))
+		return map(self.reverse_map, self.classifier.predict(preprocessing.scale(x)))
+
+def cross_validate(json_corpus):
+	for k in range (0, 5):
+		i = k * len(json_corpus) / 5
+		j = (k + 1) * len(json_corpus) / 5
+		#print training_corpus[i:j]
+		analyzer = SentimentAnalyzer()
+		analyzer.train(training_corpus[:i] + training_corpus[j:])
+		classes = analyzer.getClasses(map(lambda x: x['text'], training_corpus[i:j]))
+		corr = 0
+		l = -1 
+		for tweet in training_corpus[i:j]:
+			#corr += (tweet['polarity'] == classes[++l])
+			if tweet['polarity'] == classes[++l]:
+				corr += 1
+		print corr * 1. / (j - i)
+
 
 #debug!
 #print training_corpus[0]['polarity']
 #print training_corpus[0]['text']
 #print len(training_corpus)
 
-analyzer = SentimentAnalyzer()
-training_corpus = json.load(open('tweets.json'))
-analyzer.train(training_corpus[:-1])
+#training_corpus = json.load(open('tweets.json'))
+#random.shuffle(training_corpus)
+#cross_validate(training_corpus)
+
+#analyzer = SentimentAnalyzer()
+#analyzer.train(training_corpus[:-1])
+#print analyzer.getClasses([training_corpus[-1]['text']])
+
 #analyzer.getClasses(map (lambda x: x['text'], training_corpus))
 #analyzer.getClasses([training_corpus[1]['text']])
-analyzer.getClasses([training_corpus[-1]['text']])
 #print analyzer.getClasses(texts)
